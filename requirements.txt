@@ -1,0 +1,6 @@
+mlx
+torch
+torchvision
+opencv-python
+langchain
+python-dotenv
