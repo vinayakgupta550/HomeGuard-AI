@@ -4,3 +4,10 @@ torchvision
 opencv-python
 langchain
 python-dotenv
+einops
+pillow
+transformers<5.0.0
+datasets 
+pandas 
+scikit-learn 
+tabulate
