@@ -10,4 +10,4 @@ transformers<5.0.0
 datasets 
 pandas 
 scikit-learn 
-tabulate
+tabulatemlx-vlm
