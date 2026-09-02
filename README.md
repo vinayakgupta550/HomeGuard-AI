@@ -115,6 +115,17 @@ python tests/evaluate.py
 ## 🛠️ Tech Stack
 
 * **Core Framework:** Apple MLX / `mlx-vlm`
-* **Models Tested:** `mlx-community/Qwen2-VL-2B-Instruct-4bit`, `vikhyatk/moondream2`
+* **Models Tested:** `mlx-community/Qwen2-VL-2B-Instruct-4bit`, `vikhyatk/moondream2`, `mlx-community/SmolVLM-Instruct-4bit`, `mlx-community/Phi-3.5-vision-instruct-4bit`, `mlx-community/Qwen2-VL-7B-Instruct-4bit`
 * **Data & Benchmarking:** Hugging Face `datasets`, `scikit-learn`, `pandas`
 * **Perception Ingestion:** `OpenCV`, `Pillow`
+
+## v1.0 Prototyping: Naive VLM Pipeline
+
+v1.0 explored using the following models via MLX:
+
+1. Qwen2-VL-2B-Instruct-4bit
+2. SmolVLM-Instruct-4bit
+3. Phi-3.5-vision-instruct-4bit
+4. Qwen2-VL-7B-Instruct-4bit
+
+for direct object detection on a COCO subset. While the model achieved high accuracy through prompt engineering and regex-based output parsing (to bypass JSON/bounding box hallucinations), the architecture revealed two major flaws for edge deployment: it bottlenecked at ~1.2 FPS, and VLMs struggle with static object counting. This led to the architectural pivot in v2.0.

@@ -9,3 +9,6 @@ __pycache__/
 # macOS System Files
 .DS_Store
 data/
+
+# Saved images
+*.jpg

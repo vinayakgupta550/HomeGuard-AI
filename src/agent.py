@@ -1,83 +1,85 @@
 import json
-import os
-from datetime import datetime
-
-# --- 1. Edge Agent Tools ---
-
-def log_incident(description: str, severity: str) -> str:
-    """Logs detected events to a local security audit file."""
-    os.makedirs("data", exist_ok=True)
-    entry = {
-        "timestamp": datetime.now().isoformat(),
-        "severity": severity,
-        "description": description,
-    }
-    with open("data/security_log.json", "a") as f:
-        f.write(json.dumps(entry) + "\n")
-    return f"[TOOL EXECUTED] Incident recorded in security_log.json (Severity: {severity})"
-
-def trigger_alarm(reason: str) -> str:
-    """Simulates an edge-native audible/visual deterrent alarm."""
-    return f"[TOOL EXECUTED] ALARM TRIGGERED: {reason}"
-
-def notify_user(message: str) -> str:
-    """Simulates sending an edge push notification or webhook alert."""
-    return f"[TOOL EXECUTED] Push notification sent: '{message}'"
-
-
-# --- 2. The Agent Decision Loop ---
 
 class SecurityAgent:
     def __init__(self):
-        # Tool registry mapping tool names to actual Python functions
-        self.tools = {
-            "log": log_incident,
-            "alarm": trigger_alarm,
-            "alert": notify_user,
-        }
+        # The priority hierarchy: Lower index = Higher threat severity
+        self.critical_threats = ["weapon", "smoke", "intruder_mask"]
+        self.warning_threats = ["person", "unrecognized_vehicle"]
+        self.routine_threats = ["none"]
 
-    def evaluate_and_act(self, visual_observation: str) -> dict:
+    def evaluate_and_act(self, raw_observation):
         """
-        Analyzes the VLM observation, determines threat level,
-        and autonomously selects the appropriate tool to execute.
+        Takes the raw JSON output from the VLM, determines the highest
+        priority threat, and dispatches the appropriate tool.
         """
-        obs_lower = visual_observation.lower()
+        # 1. Parse and sanitize the VLM output
+        threats_detected = []
+        reasoning = ""
         
-        # Rule-based / Structured reasoning heuristic for edge determinism
-        if any(threat in obs_lower for threat in ["mask", "weapon", "intruder", "fire", "smoke"]):
-            action = "alarm"
-            params = {"reason": f"High threat visual anomaly: {visual_observation}"}
-            severity = "HIGH"
-        elif any(person in obs_lower for threat in ["person", "man", "woman", "human"] for person in [threat]):
-            action = "alert"
-            params = {"message": f"Person detected in monitored zone: {visual_observation}"}
-            severity = "MEDIUM"
-        else:
-            action = "log"
-            params = {"description": visual_observation, "severity": "LOW"}
-            severity = "LOW"
+        try:
+            # If observation is passed as a string representation of JSON
+            if isinstance(raw_observation, str):
+                parsed = json.loads(raw_observation)
+            else:
+                parsed = raw_observation
 
-        # Execute the chosen tool
-        tool_function = self.tools[action]
-        result = tool_function(**params)
+            reasoning = parsed.get("reasoning", "")
+            detected = parsed.get("detected_threats", [])
+            
+            # Catch model hallucinations where it returns a single string instead of a list
+            if isinstance(detected, str):
+                threats_detected = [detected.lower()]
+            elif isinstance(detected, list):
+                threats_detected = [str(t).lower() for t in detected]
+                
+        except (json.JSONDecodeError, AttributeError):
+            # Fallback if the model completely hallucinated the JSON schema
+            threats_detected = [raw_observation.lower() if isinstance(raw_observation, str) else "unknown"]
+
+        # 2. Apply Threat Policy (Highest severity wins)
+        action_taken = "log" # Default fallback
+        status = "LOW"
+        
+        # Check Critical Threats first
+        if any(threat in threats_detected for threat in self.critical_threats):
+            action_taken = "alarm"
+            status = "CRITICAL"
+        # Check Warning Threats second
+        elif any(threat in threats_detected for threat in self.warning_threats):
+            action_taken = "alert"
+            status = "MEDIUM"
+
+        # 3. Execute the mapped tool
+        tool_response = self._execute_tool(action_taken, threats_detected, reasoning)
 
         return {
-            "observation": visual_observation,
-            "threat_level": severity,
-            "action_taken": action,
-            "tool_output": result,
+            "status": status,
+            "action_taken": action_taken,
+            "threats_detected": threats_detected,
+            "tool_response": tool_response
         }
 
-if __name__ == "__main__":
-    agent = SecurityAgent()
+    # --- Tool Registry ---
     
-    # Test with a mock visual observation
-    test_obs = "A person wearing a dark jacket standing near the camera."
-    print("Testing Agent Reasoning...")
-    decision = agent.evaluate_and_act(test_obs)
-    
-    print("\n--- Agent Execution Result ---")
-    print(f"Observation:  {decision['observation']}")
-    print(f"Threat Level: {decision['threat_level']}")
-    print(f"Action:       {decision['action_taken']}")
-    print(f"Result:       {decision['tool_output']}")
+    def _execute_tool(self, action, threats, reasoning):
+        """Routes the action to the correct internal function."""
+        threat_str = ", ".join(threats) if threats else "None"
+        
+        if action == "trigger_alarm":
+            return self.tool_trigger_alarm(threat_str, reasoning)
+        elif action == "notify_user":
+            return self.tool_notify_user(threat_str, reasoning)
+        else:
+            return self.tool_log_incident(threat_str)
+
+    def tool_trigger_alarm(self, threat, reasoning):
+        return f"[ALARM ENGAGED] Critical threat isolated ({threat}). Evidence: {reasoning}"
+
+    def tool_notify_user(self, threat, reasoning):
+        return f"[NOTIFICATION SENT] Activity detected ({threat}). Evidence: {reasoning}"
+
+    def tool_log_incident(self, threat):
+        return f"[LOG SAVED] Routine scan clear. Detected: {threat}"
+
+# Maintain backwards compatibility with earlier scripts
+SecurityAgent.process_observation = SecurityAgent.evaluate_and_act
